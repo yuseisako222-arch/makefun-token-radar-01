@@ -168,8 +168,6 @@
 
   function renderMethod() {
     const m = data.model;
-    byId('snapshot').textContent = `DefiLlama snapshot · ${data.as_of}`;
-    byId('snapshot').title = data.source;
     setFacts('metrics', [
       ['Ranked protocols', String(data.board_size)],
       ['Watchlist covered', `${data.watchlist_size} / ${data.watchlist_size}`],
@@ -182,12 +180,21 @@
     );
   }
 
-  function setChecklist(row) {
+  function setSteps(row, interactive) {
     const saved = checkedSteps.get(row.slug) ?? new Set();
-    checkedSteps.set(row.slug, saved);
+    if (interactive) checkedSteps.set(row.slug, saved);
     byId('steps').replaceChildren(...row.farm_steps.map((step, index) => {
       const [, action, cost, time] = step.match(/^(.*) Cost: (.*)\. Time: (.*)\.$/) ?? [null, step, '', ''];
       const item = element('li');
+      const notes = element('span', undefined, 'step-copy');
+      notes.append(element('span', action));
+      if (cost) notes.append(element('span', `Cost · ${cost}`, 'step-cost'));
+      if (time) notes.append(element('span', `Time · ${time}`, 'step-time'));
+      if (!interactive) {
+        item.append(notes);
+        return item;
+      }
+
       const label = element('label');
       const check = element('input');
       check.type = 'checkbox';
@@ -196,21 +203,15 @@
         if (check.checked) saved.add(index);
         else saved.delete(index);
       });
-      const notes = element('span', undefined, 'step-copy');
-      notes.append(element('span', action));
-      if (cost) notes.append(element('span', `Cost · ${cost}`, 'step-cost'));
-      if (time) notes.append(element('span', `Time · ${time}`, 'step-time'));
       label.append(check, notes);
       item.append(label);
       return item;
     }));
   }
 
-  function openDetail(row) {
+  function renderDetail(row, interactive) {
     const model = row.model;
     const category = categoryOf(row);
-    selected = row.slug;
-    updateLink();
     byId('detail-meta').textContent = `Rank ${row.rank} of ${data.board_size} · ${category}`;
     byId('detail-title').textContent = row.name;
     byId('detail-chains').textContent = row.chains.join(' · ') || 'No chains recorded';
@@ -244,9 +245,44 @@
       ['Market cap', row.mcap_usd === null ? '—' : wholeUsd.format(row.mcap_usd)],
       ['Listed at', row.listed_at ?? '—'], ['CoinGecko ID', row.gecko_id ?? '—'], ['Symbol', row.symbol ?? '—'],
     ]);
-    setChecklist(row);
+    setSteps(row, interactive);
+  }
+
+  function openDetail(row) {
+    selected = row.slug;
+    updateLink();
+    renderDetail(row, true);
     if (!dialog.open) dialog.showModal();
     dialog.scrollTop = 0;
+  }
+
+  function renderDetailPage(row) {
+    renderDetail(row, false);
+    document.title = `${row.name} | Token Radar`;
+
+    const pageSection = element('section', undefined, 'detail-page');
+    pageSection.setAttribute('aria-labelledby', 'detail-title');
+    const head = dialog.querySelector('.detail-head');
+    const dialogTitle = byId('detail-title');
+    const title = element('h1', dialogTitle.textContent);
+    title.id = dialogTitle.id;
+    dialogTitle.replaceWith(title);
+    const back = element('a', 'Back to the board', 'detail-back');
+    back.href = 'index.html';
+    head.querySelector('form').replaceWith(back);
+
+    const grid = dialog.querySelector('.detail-grid');
+    const raw = byId('raw');
+    const facts = element('section', undefined, 'detail-raw');
+    facts.append(element('h3', raw.querySelector('summary').textContent), byId('facts'));
+    raw.remove();
+    grid.append(facts);
+
+    pageSection.append(head, grid);
+    const shell = document.querySelector('.shell');
+    shell.replaceChildren(shell.querySelector('.masthead'), pageSection);
+    document.querySelector('.skip').remove();
+    dialog.remove();
   }
 
   function renderMarket() {
@@ -261,6 +297,18 @@
       );
       return tr;
     }));
+  }
+
+  byId('snapshot').textContent = `DefiLlama snapshot · ${data.as_of}`;
+  byId('snapshot').title = data.source;
+
+  const query = new URLSearchParams(location.search);
+  if (query.get('shot') === 'detail') {
+    const row = groups.get(query.get('slug')) ?? data.rows.find((row) => row.rank === 1);
+    if (row) {
+      renderDetailPage(row);
+      return;
+    }
   }
 
   fillFilter(filters.category, data.rows.map(categoryOf));
