@@ -204,6 +204,7 @@ dialog::backdrop { background: #132b28a6; }
 .detail-grid h3 { font-size: 17px; letter-spacing: -0.02em; }
 .detail-value { margin: 1px 0 6px; color: var(--accent); font: 700 clamp(21px, 3vw, 32px)/1.35 var(--mono); letter-spacing: -0.07em; }
 .detail-confidence, .detail-plan > p { color: var(--muted); font-size: 12px; margin: 3px 0 5px; }
+.detail-plan > .plan-total { color: var(--ink); font-weight: 650; }
 .breakdown { font-size: 12px; }
 .breakdown div {
   display: grid;

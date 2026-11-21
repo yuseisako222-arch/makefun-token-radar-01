@@ -1,4 +1,4 @@
-import { farmSteps } from './farm.ts';
+import { farmPlan, type FarmPlan } from './farm.ts';
 
 /** The snapshot's protocol entry: exactly the ten fields the sealed input carries. */
 export interface SnapshotProtocol {
@@ -93,6 +93,7 @@ export interface BoardRow extends SnapshotProtocol {
   implied_value_usd: number;
   model: ModelBreakdown;
   farm_steps: string[];
+  farm_plan: FarmPlan;
 }
 
 export type LiveRow = Pick<SnapshotProtocol, 'slug' | 'name' | 'category' | 'chains' | 'tvl_usd' | 'mcap_usd' | 'change_7d'>;
@@ -258,15 +259,19 @@ function rankBoard(snapshot: Snapshot, model: ModelConstants, peers: PeerContext
 
   const scored = [...chosen.values()].map((p) => ({ p, ...valuation(p, snapshot.as_of, peers, model) }));
   scored.sort((a, b) => b.implied - a.implied || compareSlug(a.p, b.p));
-  return scored.map(({ p, implied, breakdown }, index) => ({
-    ...p,
-    rank: index + 1,
-    token_status: 'pre-token',
-    age_days: breakdown.age_days,
-    implied_value_usd: implied,
-    model: breakdown,
-    farm_steps: farmSteps(p),
-  }));
+  return scored.map(({ p, implied, breakdown }, index) => {
+    const plan = farmPlan(p);
+    return {
+      ...p,
+      rank: index + 1,
+      token_status: 'pre-token',
+      age_days: breakdown.age_days,
+      implied_value_usd: implied,
+      model: breakdown,
+      farm_steps: plan.steps.map(({ text }) => text),
+      farm_plan: plan,
+    };
+  });
 }
 
 function compareSlug(a: SnapshotProtocol, b: SnapshotProtocol): number {
