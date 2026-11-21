@@ -1,15 +1,132 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Token Radar: pre-token protocols ranked by implied value</title>
-<link rel="stylesheet" href="app.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Explore protocols with no token on record, ranked by peer-based implied token value.">
+  <title>Token Radar | DeFi protocol explorer</title>
+  <link rel="stylesheet" href="app.css">
 </head>
 <body>
-<a class="skip" href="#board">Skip to the board</a>
-<main id="board" tabindex="-1" aria-busy="true"></main>
-<script src="../data.js"></script>
-<script src="app.js"></script>
+  <a class="skip" href="#board">Skip to the ranked board</a>
+  <main class="shell">
+    <header class="masthead">
+      <span class="wordmark"><span class="signal" aria-hidden="true"></span> Token Radar</span>
+      <span class="snapshot" id="snapshot">DefiLlama snapshot</span>
+    </header>
+
+    <section class="intro" aria-labelledby="intro-title">
+      <div>
+        <h1 id="intro-title">DeFi launch radar</h1>
+        <p>Explore protocols with no token on record. Compare their implied token values and see what using each protocol would involve.</p>
+      </div>
+      <dl class="metrics" id="metrics"></dl>
+    </section>
+
+    <details class="method" id="method">
+      <summary>
+        <span class="method-title">Methodology</span>
+        <span>TVL × peer multiple, adjusted for growth, listing age and chain breadth. Points and airdrops are never guaranteed.</span>
+      </summary>
+      <div class="method-body" id="method-body"></div>
+    </details>
+
+    <section class="board" id="board" tabindex="-1" aria-labelledby="board-title" aria-busy="true">
+      <div class="board-head">
+        <h2 id="board-title">Ranked protocols</h2>
+        <div class="paging">
+          <span id="result-count" role="status"></span>
+          <div class="page-buttons" aria-label="Board pagination">
+            <button type="button" id="previous" aria-label="Previous page">←</button>
+            <button type="button" id="next" aria-label="Next page">→</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <label class="search-field">Search<input id="search" type="search" placeholder="Protocol, category or chain" autocomplete="off"></label>
+        <label>Category<select id="category"><option value="">All categories</option></select></label>
+        <label>Chain<select id="chain"><option value="">All chains</option></select></label>
+        <label>Sort by<select id="sort">
+          <option value="implied_value_usd">Implied value</option>
+          <option value="tvl_usd">TVL</option>
+          <option value="change_7d">7d change</option>
+        </select></label>
+        <button type="button" class="clear" id="clear">Clear filters</button>
+      </div>
+
+      <div class="table-scroll" id="table-scroll" tabindex="0" role="region" aria-label="Ranked protocol table">
+        <table class="ranked-table">
+          <thead>
+            <tr>
+              <th scope="col" class="rank">Rank</th>
+              <th scope="col">Protocol</th>
+              <th scope="col">Category</th>
+              <th scope="col">Chains</th>
+              <th scope="col" class="numeric" id="tvl_usd">TVL</th>
+              <th scope="col" class="numeric" id="change_7d">7d change</th>
+              <th scope="col" class="numeric" id="implied_value_usd">Implied value</th>
+              <th scope="col" class="numeric">Implied multiple</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+        <p class="empty" id="empty" hidden>No matches. Try a different search or clear the filters.</p>
+      </div>
+      <p class="empty" id="data-message">Loading snapshot…</p>
+      <noscript><p class="empty">Enable JavaScript to view the offline board.</p></noscript>
+    </section>
+
+    <details class="market" id="market" hidden>
+      <summary id="market-title">Listed token reference</summary>
+      <p>Snapshot market caps for the largest protocols with a token on record.</p>
+      <div class="table-scroll" tabindex="0" role="region" aria-labelledby="market-title">
+        <table>
+          <thead><tr>
+            <th scope="col">Protocol</th><th scope="col">Category</th><th scope="col">Chains</th>
+            <th scope="col" class="numeric">TVL</th><th scope="col" class="numeric">7d change</th><th scope="col" class="numeric">Market cap</th>
+          </tr></thead>
+          <tbody id="market-rows"></tbody>
+        </table>
+      </div>
+    </details>
+  </main>
+
+  <dialog id="detail" aria-labelledby="detail-title">
+    <header class="detail-head">
+      <div>
+        <p class="detail-meta" id="detail-meta"></p>
+        <h2 id="detail-title"></h2>
+        <p class="detail-chains" id="detail-chains"></p>
+      </div>
+      <form method="dialog"><button type="submit" class="close" aria-label="Close protocol detail" autofocus>Close <span aria-hidden="true">×</span></button></form>
+    </header>
+    <div class="detail-grid">
+      <div class="detail-model">
+        <section aria-labelledby="value-title">
+          <h3 id="value-title">Implied token value</h3>
+          <p class="detail-value" id="detail-value"></p>
+          <dl class="breakdown" id="breakdown"></dl>
+        </section>
+        <section class="peers" aria-labelledby="peer-title">
+          <h3 id="peer-title">Peer context</h3>
+          <p id="peer-note"></p>
+          <dl class="breakdown" id="peers"></dl>
+        </section>
+        <details class="raw" id="raw">
+          <summary>Raw snapshot facts</summary>
+          <dl class="breakdown" id="facts"></dl>
+        </details>
+      </div>
+      <section class="detail-plan" aria-labelledby="plan-title">
+        <h3 id="plan-title">Farm checklist</h3>
+        <p>Example budgets include a fee reserve. Check the wallet quote before signing.</p>
+        <ol class="steps" id="steps"></ol>
+      </section>
+    </div>
+  </dialog>
+
+  <script src="../data.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
