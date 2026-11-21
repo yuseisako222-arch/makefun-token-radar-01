@@ -36,6 +36,7 @@
   const pct = new Intl.NumberFormat('en-US', { signDisplay: 'exceptZero', maximumFractionDigits: 2, minimumFractionDigits: 1 });
   const usd = (value) => value === null ? '—' : compactUsd.format(value);
   const multiple = (value) => value === null ? '—' : `${ratio.format(value)}×`;
+  const clampRange = ([min, max]) => `${ratio.format(min)}–${multiple(max)}`;
   const multiplier = (value) => `${factor.format(value)}×`;
   const change = (value) => value === null ? '—' : `${pct.format(value)}%`;
   const categoryOf = (row) => row.category ?? 'Uncategorized';
@@ -176,13 +177,15 @@
 
   function renderMethod() {
     const m = data.model;
+    const clamp = data.rows[0]?.model.peer_ratio_clamp;
+    const clampClause = clamp ? `, clamping each ratio to ${clampRange(clamp)} before taking medians` : '';
     setFacts('metrics', [
       ['Ranked protocols', String(data.board_size)],
       ['Watchlist covered', `${data.watchlist_size} / ${data.watchlist_size}`],
       ['Global peer median', multiple(data.global_peers.median)],
     ]);
     byId('method-body').append(
-      element('p', `We compare market cap divided by TVL across ${data.global_peers.count} snapshot protocols with both figures. With at least ${m.min_category_peers} peers, the category median sets the starting multiple. Smaller groups blend toward the global median (${multiple(data.global_peers.median)}) using ${100 / m.min_category_peers}% category weight per peer. The blend uses log(1 + multiple) to soften extreme small-group ratios. With zero peers, the global median supplies the starting multiple.`),
+      element('p', `We compare market cap divided by TVL across ${data.global_peers.count} snapshot protocols with both figures${clampClause}. With at least ${m.min_category_peers} peers, the category median sets the starting multiple. Smaller groups blend toward the global median (${multiple(data.global_peers.median)}) using ${100 / m.min_category_peers}% category weight per peer. The blend uses log(1 + multiple) to soften extreme small-group ratios. With zero peers, the global median supplies the starting multiple.`),
       element('p', `We apply ${100 * m.growth_weight}% of the seven-day TVL change, bounded to a ${multiplier(m.growth_floor)}–${multiplier(m.growth_cap)} multiplier. Listing age adjusts the value by ${change((m.new_multiplier - 1) * 100)} under ${m.new_age_days} days or ${change((m.old_multiplier - 1) * 100)} from ${m.old_age_days.toLocaleString('en-US')} days. Each additional chain adds up to ${change(m.breadth_per_extra_chain * 100)}, with a total bonus capped at ${change(m.breadth_bonus_cap * 100)}. Missing growth or listing age is neutral. We round the result to whole dollars, with a $1 floor.`),
       element('p', `The board covers the sealed ${usd(data.floor_usd)} watchlist and ${data.early_size} eligible protocols below its floor. An implied value estimates a hypothetical market cap. The snapshot establishes what DefiLlama had on record as of ${data.as_of}.`),
     );
@@ -249,6 +252,12 @@
       ['Category median mcap/TVL', multiple(model.category_median_multiple)],
       [`Global median · ${data.global_peers.count} peers`, multiple(model.global_median_multiple)],
     ]);
+    const { peer_ratio_clamp: clamp, category_median_raw: rawMedian } = model;
+    const clampNote = byId('peer-clamp-note');
+    clampNote.textContent = clamp && typeof rawMedian === 'number' && rawMedian !== model.category_median_multiple
+      ? `Peer ratios are clamped to ${clampRange(clamp)} before taking medians. This category's raw median was ${multiple(rawMedian)}.`
+      : '';
+    clampNote.hidden = !clampNote.textContent;
 
     byId('raw').open = false;
     setFacts('facts', [

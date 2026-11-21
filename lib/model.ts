@@ -41,6 +41,7 @@ export type ModelConstants = typeof MODEL;
 export const MODEL_VERSION = 'radar-2';
 export const EARLY_ROWS = 160;
 export const LIVE_ROWS = 24;
+const PEER_RATIO_CLAMP = [0.01, 3] as const;
 
 interface PeerStats {
   count: number;
@@ -49,7 +50,7 @@ interface PeerStats {
 
 interface PeerContext {
   global: { count: number; median: number };
-  categories: Map<string | null, PeerStats>;
+  categories: Map<string | null, PeerStats & { rawMedian: number | null }>;
 }
 
 type PeerSource = 'category_median' | 'shrunk_category_median' | 'global_median';
@@ -69,7 +70,9 @@ const PEER_CONFIDENCE: Record<PeerSource, Omit<PeerConfidence, 'peers'>> = {
 interface ModelBreakdown {
   category: string | null;
   peer_count: number;
+  peer_ratio_clamp: typeof PEER_RATIO_CLAMP;
   category_median_multiple: number | null;
+  category_median_raw?: number;
   global_median_multiple: number;
   category_weight: number;
   peer_source: PeerSource;
@@ -137,22 +140,30 @@ function peerStats(multiples: number[]): PeerStats {
   return { count, median: (lower + upper) / 2 };
 }
 
+function clampPeerRatio(ratio: number): number {
+  const [min, max] = PEER_RATIO_CLAMP;
+  return Math.min(max, Math.max(min, ratio));
+}
+
 /** Use every snapshot protocol with both measurements, including those outside the ranked board. */
 function collectPeers(protocols: SnapshotProtocol[]): PeerContext {
   const multiples: number[] = [];
-  const byCategory = new Map<string | null, number[]>();
+  const rawByCategory = new Map<string | null, number[]>();
   for (const p of protocols) {
     if (p.mcap_usd === null || p.tvl_usd <= 0) continue;
-    const multiple = p.mcap_usd / p.tvl_usd;
-    multiples.push(multiple);
-    const category = byCategory.get(p.category) ?? [];
-    category.push(multiple);
-    byCategory.set(p.category, category);
+    const rawRatio = p.mcap_usd / p.tvl_usd;
+    multiples.push(clampPeerRatio(rawRatio));
+    const category = rawByCategory.get(p.category) ?? [];
+    category.push(rawRatio);
+    rawByCategory.set(p.category, category);
   }
 
   const { count, median } = peerStats(multiples);
   if (median === null) throw new SnapshotError('snapshot.json has no market-cap/TVL peers for valuation');
-  const categories = new Map([...byCategory].map(([category, values]) => [category, peerStats(values)]));
+  const categories = new Map([...rawByCategory].map(([category, rawRatios]) => [category, {
+    ...peerStats(rawRatios.map(clampPeerRatio)),
+    rawMedian: peerStats(rawRatios).median,
+  }]));
   return { global: { count, median }, categories };
 }
 
@@ -160,6 +171,7 @@ function peerMultiple(category: string | null, peers: PeerContext, minPeers: num
   const group = peers.categories.get(category);
   const count = group?.count ?? 0;
   const median = group?.median ?? null;
+  const rawMedian = group?.rawMedian ?? null;
   const global = peers.global.median;
   const weight = Math.min(1, count / minPeers);
   let source: PeerSource = 'global_median';
@@ -171,14 +183,15 @@ function peerMultiple(category: string | null, peers: PeerContext, minPeers: num
   } else if (median !== null) {
     source = 'shrunk_category_median';
     // Interpolate on log(1 + multiple) so extreme small-group medians have less leverage.
-    // The offset lets zero market caps participate without a special case.
     multiple = Math.expm1(weight * Math.log1p(median) + (1 - weight) * Math.log1p(global));
   }
 
   return {
     category,
     peer_count: count,
+    peer_ratio_clamp: PEER_RATIO_CLAMP,
     category_median_multiple: median,
+    ...(rawMedian !== null && rawMedian !== median ? { category_median_raw: rawMedian } : {}),
     global_median_multiple: global,
     category_weight: weight,
     peer_source: source,
