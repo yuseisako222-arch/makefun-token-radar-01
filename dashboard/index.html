@@ -26,7 +26,7 @@
     <details class="method" id="method">
       <summary>
         <span class="method-title">Methodology</span>
-        <span>TVL × peer multiple, adjusted for growth, listing age and chain breadth. Points and airdrops are never guaranteed.</span>
+        <span>TVL × peer multiple, adjusted for growth, listing age and chain breadth, with a confidence tier based on each row’s peer evidence. Points and airdrops are never guaranteed.</span>
       </summary>
       <div class="method-body" id="method-body"></div>
     </details>
@@ -47,6 +47,12 @@
         <label class="search-field">Search<input id="search" type="search" placeholder="Protocol, category or chain" autocomplete="off"></label>
         <label>Category<select id="category"><option value="">All categories</option></select></label>
         <label>Chain<select id="chain"><option value="">All chains</option></select></label>
+        <label>Confidence<select id="confidence">
+          <option value="">All</option>
+          <option value="high">High</option>
+          <option value="medium">Medium</option>
+          <option value="low">Low</option>
+        </select></label>
         <label>Sort by<select id="sort">
           <option value="implied_value_usd">Implied value</option>
           <option value="tvl_usd">TVL</option>
@@ -62,6 +68,7 @@
               <th scope="col" class="rank">Rank</th>
               <th scope="col">Protocol</th>
               <th scope="col">Category</th>
+              <th scope="col">Confidence</th>
               <th scope="col">Chains</th>
               <th scope="col" class="numeric" id="tvl_usd">TVL</th>
               <th scope="col" class="numeric" id="change_7d">7d change</th>
@@ -106,11 +113,11 @@
         <section aria-labelledby="value-title">
           <h3 id="value-title">Implied token value</h3>
           <p class="detail-value" id="detail-value"></p>
+          <p class="detail-confidence" id="peer-note"></p>
           <dl class="breakdown" id="breakdown"></dl>
         </section>
         <section class="peers" aria-labelledby="peer-title">
           <h3 id="peer-title">Peer context</h3>
-          <p id="peer-note"></p>
           <dl class="breakdown" id="peers"></dl>
         </section>
         <details class="raw" id="raw">

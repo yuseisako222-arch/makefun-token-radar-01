@@ -11,10 +11,12 @@
 
   const pageSize = 15;
   const sortKeys = ['implied_value_usd', 'tvl_usd', 'change_7d'];
+  const confidenceLabels = { high: 'High', medium: 'Medium', low: 'Low' };
   const filters = {
     q: byId('search'),
     category: byId('category'),
     chain: byId('chain'),
+    confidence: byId('confidence'),
     sort: byId('sort'),
   };
   const groups = new Map(data.rows.map((row) => [row.slug, row]));
@@ -81,9 +83,10 @@
     }
   }
 
-  function matches(row, query, category, chain) {
+  function matches(row, query, category, chain, confidence) {
     if (category && categoryOf(row) !== category) return false;
     if (chain && !row.chains.includes(chain)) return false;
+    if (confidence && row.model.confidence?.tier !== confidence) return false;
     const searchText = [row.name, row.slug, categoryOf(row), ...row.chains].join(' ').toLowerCase();
     return searchText.includes(query);
   }
@@ -127,10 +130,14 @@
     const name = element('th');
     name.scope = 'row';
     name.append(button);
+    const tier = row.model.confidence?.tier;
+    const confidence = element('td');
+    confidence.append(tier ? element('span', confidenceLabels[tier], `confidence-badge ${tier}`) : '—');
     tr.append(
       element('td', String(row.rank), 'rank numeric'),
       name,
       element('td', categoryOf(row), 'category'),
+      confidence,
       chainCell(row.chains),
       moneyCell(row.tvl_usd),
       changeCell(row.change_7d),
@@ -143,8 +150,9 @@
   function renderBoard() {
     const query = filters.q.value.trim().toLowerCase();
     const key = filters.sort.value;
+    const confidence = filters.confidence.value;
     const rows = data.rows
-      .filter((row) => matches(row, query, filters.category.value, filters.chain.value))
+      .filter((row) => matches(row, query, filters.category.value, filters.chain.value, confidence))
       .sort(makeSorter(key));
     const start = page * pageSize;
     const end = Math.min(start + pageSize, rows.length);
@@ -225,12 +233,17 @@
       ['Implied multiple after adjustments', row.tvl_usd > 0 ? multiple(row.implied_value_usd / row.tvl_usd) : '—'],
     ]);
 
+    const { confidence } = model;
+    const peerCount = confidence?.peers ?? model.peer_count;
+    const evidence = `${category} has ${peerCount} token-bearing ${peerCount === 1 ? 'peer' : 'peers'}`;
+    const categoryWeight = Math.round(model.category_weight * 100);
     const peerNotes = {
-      category_median: `The ${category} median supplies the applied multiple.`,
-      shrunk_category_median: `Sparse group. The applied multiple blends the ${category} median toward the global median with ${Math.round(model.category_weight * 100)}% category weight.`,
-      global_median: `The global median applies because ${category} has zero peers with both figures.`,
+      category_median: 'the category median supplies the applied multiple.',
+      shrunk_category_median: `the applied multiple blends the category and global medians at ${categoryWeight}/${100 - categoryWeight}.`,
+      global_median: 'the global median applies.',
     };
-    byId('peer-note').textContent = peerNotes[model.peer_source];
+    const confidencePrefix = confidence ? `Confidence: ${confidenceLabels[confidence.tier]} — ` : '';
+    byId('peer-note').textContent = `${confidencePrefix}${evidence}, so ${peerNotes[model.peer_source]}`;
     setFacts('peers', [
       [`${category} · token-bearing peers`, String(model.peer_count)],
       ['Category median mcap/TVL', multiple(model.category_median_multiple)],
@@ -333,6 +346,7 @@
     filters.q.value = '';
     filters.category.value = '';
     filters.chain.value = '';
+    filters.confidence.value = '';
     setPage(0);
     updateLink();
     filters.q.focus();

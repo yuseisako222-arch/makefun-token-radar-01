@@ -54,6 +54,18 @@ interface PeerContext {
 
 type PeerSource = 'category_median' | 'shrunk_category_median' | 'global_median';
 
+interface PeerConfidence {
+  tier: 'high' | 'medium' | 'low';
+  basis: 'category' | 'blended' | 'global';
+  peers: number;
+}
+
+const PEER_CONFIDENCE: Record<PeerSource, Omit<PeerConfidence, 'peers'>> = {
+  category_median: { tier: 'high', basis: 'category' },
+  shrunk_category_median: { tier: 'medium', basis: 'blended' },
+  global_median: { tier: 'low', basis: 'global' },
+};
+
 interface ModelBreakdown {
   category: string | null;
   peer_count: number;
@@ -68,6 +80,7 @@ interface ModelBreakdown {
   maturity_multiplier: number;
   chain_count: number;
   breadth_multiplier: number;
+  confidence: PeerConfidence;
 }
 
 export interface BoardRow extends SnapshotProtocol {
@@ -193,6 +206,7 @@ function valuation(p: SnapshotProtocol, asOf: string, peers: PeerContext, model:
       maturity_multiplier: maturity,
       chain_count: chainCount,
       breadth_multiplier: breadth,
+      confidence: { ...PEER_CONFIDENCE[peer.peer_source], peers: peer.peer_count },
     },
   };
 }
