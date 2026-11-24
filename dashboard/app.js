@@ -186,24 +186,28 @@
   function renderMethod() {
     const m = data.model;
     const clamp = data.rows[0]?.model.peer_ratio_clamp;
-    const clampClause = clamp ? `, clamping each ratio to ${clampRange(clamp)} before taking medians` : '';
     setFacts('metrics', [
       ['Ranked protocols', String(data.board_size)],
       ['Watchlist covered', `${data.watchlist_size} / ${data.watchlist_size}`],
       ['Global peer median', multiple(data.global_peers.median)],
     ]);
     const body = byId('method-body');
-    body.append(element('p', `We compare market cap divided by TVL across ${data.global_peers.count} snapshot protocols with both figures${clampClause}. With at least ${m.min_category_peers} peers, the category median sets the starting multiple. Smaller groups blend toward the global median (${multiple(data.global_peers.median)}) using ${100 / m.min_category_peers}% category weight per peer. The blend uses log(1 + multiple). This shrinkage reduces the influence of a small peer sample on the applied multiple. With zero peers, the global median supplies the starting multiple.`));
+    body.append(element('p', `The sealed DefiLlama snapshot is as of ${data.as_of}. A peer multiple is market cap divided by total value locked (TVL). We use ${data.global_peers.count} token-bearing snapshot protocols with both figures and positive TVL.`));
+    if (clamp) {
+      body.append(element('p', `We clamp each peer ratio to ${clampRange(clamp)} before calculating the global and category medians to limit how much one extreme peer can move a small category’s median.`));
+    }
+    body.append(element('p', `High confidence means the category median applies directly because the category has at least ${m.min_category_peers} token-bearing peers. Medium confidence means the category has 1 to ${m.min_category_peers - 1} token-bearing peers, so its median is blended toward the global median (${multiple(data.global_peers.median)}) on the log(1 + multiple) scale, with ${100 / m.min_category_peers}% category weight per peer. Low confidence means the category has no token-bearing peers, so the global median applies.`));
     const example = groups.get('steakhouse-financial');
     if (example?.model.peer_source === 'shrunk_category_median') {
       const peer = example.model;
       const weight = Math.round(peer.category_weight * 100);
       const peers = peer.peer_count === 1 ? 'peer' : 'peers';
-      body.append(element('p', `Worked example — ${example.name}. ${categoryOf(example)} has ${peer.peer_count} token-bearing ${peers} with a ${peer.category_median_multiple.toFixed(2)}× median. The log-scale blend weights the category and global medians ${weight}/${100 - weight} (global median ${peer.global_median_multiple.toFixed(3)}×), yielding an applied multiple of ${peer.peer_multiple.toFixed(3)}×.`));
+      body.append(element('p', `Worked example — ${example.name}. ${categoryOf(example)} has ${peer.peer_count} token-bearing ${peers} with a ${peer.category_median_multiple.toFixed(2)}× median. We blend on the log(1 + multiple) scale using the peer count divided by ${m.min_category_peers} (the minimum for the category median to apply directly) as the category weight, capped at 100%. The category and global weights are ${weight}/${100 - weight} (global median ${peer.global_median_multiple.toFixed(3)}×), yielding an applied multiple of ${peer.peer_multiple.toFixed(3)}×.`));
     }
     body.append(
       element('p', `We apply ${100 * m.growth_weight}% of the seven-day TVL change, bounded to a ${multiplier(m.growth_floor)}–${multiplier(m.growth_cap)} multiplier. Listing age adjusts the value by ${change((m.new_multiplier - 1) * 100)} under ${m.new_age_days} days or ${change((m.old_multiplier - 1) * 100)} from ${m.old_age_days.toLocaleString('en-US')} days. Each additional chain adds up to ${change(m.breadth_per_extra_chain * 100)}, with a total bonus capped at ${change(m.breadth_bonus_cap * 100)}. Missing growth or listing age is neutral. We round the result to whole dollars, with a $1 floor.`),
-      element('p', `The board covers the sealed ${usd(data.floor_usd)} watchlist and ${data.early_size} eligible protocols below its floor. An implied value estimates a hypothetical market cap. The snapshot establishes what DefiLlama had on record as of ${data.as_of}.`),
+      element('p', `The board covers the sealed ${usd(data.floor_usd)} watchlist and ${data.early_size} eligible protocols below its floor. An implied value estimates a hypothetical market cap.`),
+      element('p', 'On the 2026-11-14 dev snapshot, relative to the [0.01, 3.0] clamp, Spearman rank correlations for the full board and watchlist were 0.99878 and 0.99456 with [0.005, 2], and 0.99962 and 0.99831 with [0.02, 5], respectively.'),
     );
   }
 
@@ -214,7 +218,7 @@
     if (summary) {
       const { capital_usd, fees_usd, primary_chain, chain_class } = summary;
       const capital = Number.isInteger(capital_usd) ? wholeUsd.format(capital_usd) : feeUsd.format(capital_usd);
-      total.textContent = `Plan total: ~${capital} capital + ~${feeUsd.format(fees_usd)} in fees (primary chain: ${primary_chain ?? 'unrecorded'}, ${chainFeeLabels[chain_class]}).`;
+      total.textContent = `Plan total: ~${capital} capital + ~${feeUsd.format(fees_usd)} in estimated fees and slippage (primary chain: ${primary_chain ?? 'unrecorded'}, ${chainFeeLabels[chain_class]}).`;
     }
     const saved = checkedSteps.get(row.slug) ?? new Set();
     if (interactive) checkedSteps.set(row.slug, saved);
